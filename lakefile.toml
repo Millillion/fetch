@@ -1,9 +1,0 @@
-name = "fetch"
-version = "0.0.0"
-defaultTargets = ["Fetch"]
-license = "MIT"
-description = "A fetch-style HTTP client for Lean 4, built on Std.Http"
-keywords = ["http", "fetch", "client", "networking"]
-
-[[lean_lib]]
-name = "Fetch"

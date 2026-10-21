@@ -1,14 +1,7 @@
-/-!
-# Fetch
-
-A fetch-style HTTP client for Lean 4, built on `Std.Http` types.
-
-In development: the API is not implemented yet.
+/-
+Copyright (c) 2026 Millillion. Released under the MIT license.
 -/
-
-namespace Fetch
-
-/-- The package version. -/
-def version : String := "0.0.0"
-
-end Fetch
+import Fetch.Basic
+import Fetch.Shim
+import Fetch.Transports
+import Fetch.Client
