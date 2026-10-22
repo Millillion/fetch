@@ -1,5 +1,9 @@
 # fetch
 
+> **Superseded and archived (2026-10-22), never released.** Lasm programs now call
+> Node's own `fetch` (and any npm package) through Lasm's JS/npm interop instead of a
+> Lean HTTP library. This repository is kept read-only for reference.
+
 A fetch-style HTTP client for Lean 4, built on the `Std.Http` types. It runs on
 native Lean and on Node.js through [Lasm](https://github.com/Millillion/lasm).
 
