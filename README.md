@@ -3,8 +3,12 @@
 A fetch-style HTTP client for Lean 4, built on the `Std.Http` types. It runs on
 native Lean and on Node.js through [Lasm](https://github.com/Millillion/lasm).
 
-**Status: early (0.1.0, unreleased).** The API below is implemented and tested on
-Linux, macOS and Windows (x86-64 and ARM64), natively and under Lasm; it may still change.
+**Status: early (0.1.0, unreleased; no tags or releases yet).** The API below is
+implemented and its test suite (17 cases per transport, plus HTTPS and the plain
+`curl` subprocess pattern) passes natively and under Lasm (Node.js 26.12.1) on Linux
+x86-64 and ARM64, macOS x86-64 and ARM64, and Windows x86-64, in Lasm's ecosystem CI
+([compatibility list](https://github.com/Millillion/lasm/blob/main/docs/COMPATIBILITY.md)).
+The API may still change.
 
 ```lean
 import Fetch
