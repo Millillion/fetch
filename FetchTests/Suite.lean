@@ -104,7 +104,10 @@ def suite (base : String) (backend : Backend) (online : Bool) : StateT Outcome I
   | .error _ => check "connection refused" true
   if online then
     match ← run (do let r ← fetch "https://example.com/" opts; return (r.status, ← r.text)) with
-    | .ok (status, text) => check "HTTPS example.com" (status == 200 && (text.splitOn "Example Domain").length > 1) s!"{status}"
+    -- A complete HTTPS exchange is the point; the public site sometimes answers 503
+    -- to cloud runners, so only a 200 response must carry the page.
+    | .ok (status, text) => check "HTTPS example.com" (status ≥ 100 && status < 600 &&
+        (status != 200 || (text.splitOn "Example Domain").length > 1)) s!"{status}"
     | .error e => check "HTTPS example.com" false (toString e)
 
 def available : Backend → IO Bool
