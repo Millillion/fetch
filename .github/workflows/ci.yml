@@ -1,0 +1,109 @@
+name: CI
+# Native: the package and its test suite with the pinned Lean (elan) on Linux,
+# macOS and Windows against the local test server, plus HTTPS (example.com).
+# Under Lasm: the same suite compiled by an exact Lasm candidate and run in
+# Node.js on all five Lasm targets. Lasm candidates are retained as unpublished
+# draft releases of Millillion/lasm, so this job runs on dispatch with a token
+# that can read them (secret LASM_CANDIDATE_TOKEN); Lasm's own ecosystem CI also
+# runs this suite under every candidate.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      candidate-version:
+        description: Lasm candidate version (e.g. 0.1.0-experimental.123); empty skips the Lasm job
+        type: string
+        default: ''
+      candidate-release:
+        description: Release tag in Millillion/lasm holding the candidate tarball
+        type: string
+        default: ''
+      sha256:
+        description: SHA-256 of the candidate tarball
+        type: string
+        default: ''
+permissions:
+  contents: read
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm, macos-15, macos-15-intel, windows-2025]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 26.12.1
+          package-manager-cache: false
+      - name: Install elan (the toolchain comes from lean-toolchain)
+        if: runner.os != 'Windows'
+        run: |
+          curl --fail --location --retry 5 --retry-all-errors --proto '=https' -o elan-init.sh https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh
+          sh elan-init.sh -y --default-toolchain none
+          rm elan-init.sh
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+      - name: Install elan (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri https://raw.githubusercontent.com/leanprover/elan/master/elan-init.ps1 -OutFile elan-init.ps1
+          ./elan-init.ps1 -NoPrompt $true -DefaultToolchain none
+          Remove-Item elan-init.ps1
+          "$env:USERPROFILE\.elan\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Build
+        run: |
+          lean --version
+          lake build Fetch FetchTest
+      - name: Test natively against the local server and example.com
+        run: node scripts/test.mjs native --online
+
+  lasm:
+    if: github.event_name == 'workflow_dispatch' && inputs.candidate-version != ''
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm, macos-15, macos-15-intel, windows-2025]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    env:
+      VERSION: ${{ inputs.candidate-version }}
+      RELEASE: ${{ inputs.candidate-release }}
+      SHA256: ${{ inputs.sha256 }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 26.12.1
+          package-manager-cache: false
+      - name: Fetch and verify the exact Lasm candidate
+        env:
+          GH_TOKEN: ${{ secrets.LASM_CANDIDATE_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then echo "::error::The LASM_CANDIDATE_TOKEN secret is required to read Lasm's draft candidate releases"; exit 1; fi
+          mkdir -p ../lasm-candidate
+          gh release download "$RELEASE" --repo Millillion/lasm --pattern "lasm-compiler-$VERSION.tgz" --dir ../lasm-candidate
+          node -e 'const h = require("crypto").createHash("sha256").update(require("fs").readFileSync(process.argv[1])).digest("hex"); if (h !== process.env.SHA256) { console.error("checksum mismatch " + h); process.exit(1); }' "../lasm-candidate/lasm-compiler-$VERSION.tgz"
+      - name: Install Lasm as an ordinary npm dependency (outside the package)
+        run: |
+          mkdir -p ../lasm-install && cd ../lasm-install
+          echo '{"private":true}' > package.json
+          npm install --no-audit --no-fund "../lasm-candidate/lasm-compiler-$VERSION.tgz"
+      - name: Build the test program with Lasm
+        run: node ../lasm-install/node_modules/@lasm/compiler/bin/lasm.mjs build FetchTest.lean --output dist
+      - name: Test under Lasm (Node's fetch) against the local server and example.com
+        run: node scripts/test.mjs lasm --online

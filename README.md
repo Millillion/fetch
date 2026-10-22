@@ -48,6 +48,14 @@ body streams from the network.
 
 Network failures, timeouts and refused redirects throw `IO.Error`.
 
+### Not yet supported (planned)
+
+| Gap | Today | Planned |
+| --- | --- | --- |
+| Streaming upload | `body` is a complete `ByteArray`, sent at once. | A request body read from a `Std.Http.Body.Stream`. |
+| Abort signal | Only `timeout` ends a request early; `close` stops reading a response body. | An abort handle that cancels a request at any point. |
+| Multipart | No `multipart/form-data` helper; build the body and `content-type` yourself. | `Options.form` with fields and files. |
+
 ## Transports
 
 | Backend | Where | How |
@@ -67,12 +75,14 @@ with Lean's own compiler.
 
 ```sh
 lake build FetchTest
-node tests/server.mjs          # prints the local test server's URL
-.lake/build/bin/FetchTest http://127.0.0.1:PORT [--online]
+node scripts/test.mjs native [--online]   # starts the local test server and runs FetchTest against it
 ```
 
-Under Lasm, build `FetchTest.lean` with `npx lasm build FetchTest.lean` in this package and run
-`node dist/main.mjs http://127.0.0.1:PORT`. `scripts/test.mjs` does both against one server.
+Under Lasm, build `FetchTest.lean` with `npx lasm build FetchTest.lean --output dist` in this
+package and run `node scripts/test.mjs lasm [--online]`. [CI](.github/workflows/ci.yml) runs the
+native suite (with `--online`) on Linux x86-64 and ARM64, macOS x86-64 and ARM64 and Windows x86-64
+on every push; the same suite under a Lasm candidate runs on dispatch, and in Lasm's ecosystem CI
+for every Lasm candidate.
 
 ## License
 
